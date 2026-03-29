@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Sidebar } from '../components/Sidebar';
 import { Dashboard } from '../components/Dashboard';
 import { InvoiceList } from '../components/InvoiceList';
-import { InvoiceForm } from '../components/InvoiceForm';
+import { ClientList } from '../components/ClientList';
 import { Toaster, toast } from 'sonner';
 import { Bell, Search, User, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react'; // or framer-motion
@@ -84,7 +84,7 @@ export default function DashboardPage() {
             >
               {activeTab === 'dashboard' && <Dashboard />}
               {activeTab === 'invoices' && <InvoiceList />}
-              {/* Add more tabs here as you build them, like 'clients' or 'settings' */}
+              {activeTab === 'clients' && <ClientList />}
             </motion.div>
           </AnimatePresence>
         </main>

@@ -36,7 +36,7 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       // Replace with your actual Node backend URL
-      const response = await fetch('http://localhost:3001/api/login', {
+      const response = await fetch('http://localhost:3001/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
