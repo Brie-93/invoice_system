@@ -30,7 +30,22 @@ function initialFromName(name: string) {
   return t[0]?.toUpperCase() ?? "?";
 }
 
-export const ClientList = () => {
+export type ClientCardPayload = {
+  id: number;
+  name: string;
+  email: string;
+};
+
+export interface ClientListProps {
+  /** Opens the invoice form on the Invoices tab with this client pre-filled */
+  onCreateInvoiceForClient?: (client: ClientCardPayload) => void;
+  refreshKey?: number;
+}
+
+export const ClientList: React.FC<ClientListProps> = ({
+  onCreateInvoiceForClient,
+  refreshKey = 0,
+}) => {
   const [clients, setClients] = useState<Client[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [listLoading, setListLoading] = useState(true);
@@ -74,7 +89,7 @@ export const ClientList = () => {
 
   useEffect(() => {
     fetchClients();
-  }, [fetchClients]);
+  }, [fetchClients, refreshKey]);
 
   const openModal = () => {
     setFormData({ name: "", email: "", address: "" });
@@ -191,14 +206,46 @@ export const ClientList = () => {
         </motion.div>
       ) : (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
-          {clients.map((client, index) => (
+          {clients.map((client, index) => {
+            const interactive = !!onCreateInvoiceForClient;
+            return (
             <motion.article
               key={client.id}
               layout
+              role={interactive ? "button" : undefined}
+              tabIndex={interactive ? 0 : undefined}
+              onClick={
+                interactive
+                  ? () =>
+                      onCreateInvoiceForClient({
+                        id: client.id,
+                        name: client.name,
+                        email: client.email,
+                      })
+                  : undefined
+              }
+              onKeyDown={
+                interactive
+                  ? (e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onCreateInvoiceForClient({
+                          id: client.id,
+                          name: client.name,
+                          email: client.email,
+                        });
+                      }
+                    }
+                  : undefined
+              }
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05, type: "spring", stiffness: 320, damping: 26 }}
-              className="group relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-shadow hover:shadow-md"
+              className={`group relative overflow-hidden rounded-2xl border border-gray-100 bg-white p-6 shadow-sm transition-shadow hover:shadow-md ${
+                interactive
+                  ? "cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 focus-visible:ring-offset-2"
+                  : ""
+              }`}
             >
               <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-gradient-to-br from-indigo-500/10 to-purple-500/10 blur-2xl transition-opacity group-hover:opacity-100" />
               <div className="relative flex items-start gap-4">
@@ -235,7 +282,8 @@ export const ClientList = () => {
                 </span>
               </div>
             </motion.article>
-          ))}
+          );
+          })}
         </div>
       )}
 

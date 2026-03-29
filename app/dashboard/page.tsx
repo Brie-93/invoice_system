@@ -7,6 +7,7 @@ import { Sidebar } from '../components/Sidebar';
 import { Dashboard } from '../components/Dashboard';
 import { InvoiceList } from '../components/InvoiceList';
 import { ClientList } from '../components/ClientList';
+import { InvoiceForm, type PrefilledClient } from '../components/InvoiceForm';
 import { Toaster, toast } from 'sonner';
 import { Bell, Search, User, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react'; // or framer-motion
@@ -15,6 +16,21 @@ export default function DashboardPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [dataVersion, setDataVersion] = useState(0);
+  const [invoiceFormOpen, setInvoiceFormOpen] = useState(false);
+  const [invoicePrefill, setInvoicePrefill] = useState<PrefilledClient | null>(null);
+
+  const bumpData = () => setDataVersion((n) => n + 1);
+
+  const openInvoiceForm = (client: PrefilledClient | null) => {
+    setInvoicePrefill(client);
+    setInvoiceFormOpen(true);
+  };
+
+  const closeInvoiceForm = () => {
+    setInvoiceFormOpen(false);
+    setInvoicePrefill(null);
+  };
 
   // --- SECURITY CHECK ---
   useEffect(() => {
@@ -83,12 +99,33 @@ export default function DashboardPage() {
               transition={{ duration: 0.2 }}
             >
               {activeTab === 'dashboard' && <Dashboard />}
-              {activeTab === 'invoices' && <InvoiceList />}
-              {activeTab === 'clients' && <ClientList />}
+              {activeTab === 'invoices' && (
+                <InvoiceList
+                  refreshKey={dataVersion}
+                  onCreateInvoice={() => openInvoiceForm(null)}
+                  onDataChanged={bumpData}
+                />
+              )}
+              {activeTab === 'clients' && (
+                <ClientList
+                  refreshKey={dataVersion}
+                  onCreateInvoiceForClient={(c) => {
+                    setActiveTab('invoices');
+                    openInvoiceForm(c);
+                  }}
+                />
+              )}
             </motion.div>
           </AnimatePresence>
         </main>
       </div>
+
+      <InvoiceForm
+        isOpen={invoiceFormOpen}
+        onClose={closeInvoiceForm}
+        prefilledClient={invoicePrefill}
+        onSuccess={bumpData}
+      />
 
       <Toaster position="bottom-right" />
     </div>

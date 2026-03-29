@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
+    "@radix-ui/react-alert-dialog": "^1.1.15",
     "clsx": "^2.1.1",
     "lucide-react": "^0.564.0",
     "motion": "^12.34.0",
