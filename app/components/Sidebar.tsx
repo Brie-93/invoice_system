@@ -26,12 +26,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
   ];
 
   return (
-    <div className="h-screen w-64 bg-background border-r border-border/40 flex flex-col p-6 sticky top-0">
+    // Changed bg-background to explicit bg-white dark:bg-gray-900
+    <div className="h-screen w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col p-6 sticky top-0 transition-colors">
       <div className="flex items-center gap-3 mb-12 px-2">
-        <div className="w-10 h-10 bg-linear-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
+        <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20">
           <Zap className="text-white w-6 h-6" />
         </div>
-        <span className="text-xl font-bold tracking-tight bg-clip-text text-transparent bg-linear-to-r from-foreground to-foreground/70">
+        <span className="text-xl font-bold tracking-tight text-gray-900 dark:text-white">
           INVOICE.FLOW
         </span>
       </div>
@@ -43,8 +44,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
             onClick={() => setActiveTab(item.id)}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 relative group ${
               activeTab === item.id 
-                ? 'text-indigo-500 bg-indigo-500/5' 
-                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-500/10' 
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800'
             }`}
           >
             <item.icon className={`w-5 h-5 transition-transform duration-300 ${activeTab === item.id ? 'scale-110' : 'group-hover:scale-110'}`} />
