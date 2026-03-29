@@ -32,7 +32,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
           <Zap className="text-white w-6 h-6" />
         </div>
         <span className="text-xl font-bold tracking-tight bg-clip-text text-transparent bg-linear-to-r from-foreground to-foreground/70">
-          NEON.FLOW
+          INVOICE.FLOW
         </span>
       </div>
 
@@ -58,24 +58,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
           </button>
         ))}
       </nav>
-
-      <div className="mt-auto pt-6 border-t border-border/40">
-        <div className="p-4 rounded-2xl bg-linear-to-br from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 mb-6">
-          <div className="flex items-center gap-2 mb-2">
-            <CreditCard className="w-4 h-4 text-indigo-400" />
-            <span className="text-xs font-semibold text-indigo-400 uppercase tracking-wider">Pro Plan</span>
-          </div>
-          <p className="text-sm text-muted-foreground mb-3">Unlock unlimited invoices and smart analytics.</p>
-          <button className="w-full py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg text-sm transition-colors shadow-lg shadow-indigo-500/20">
-            Upgrade Now
-          </button>
-        </div>
-        
-        <button className="w-full flex items-center gap-3 px-4 py-3 text-muted-foreground hover:text-destructive transition-colors rounded-xl hover:bg-destructive/5">
-          <LogOut className="w-5 h-5" />
-          <span className="font-medium">Logout</span>
-        </button>
-      </div>
     </div>
   );
 };
