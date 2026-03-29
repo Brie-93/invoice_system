@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
+import { formatKsh } from "../lib/currency";
 
 const API_BASE = "http://localhost:3001/api/app";
 
@@ -88,16 +89,11 @@ function formatInvoiceDate(iso: string) {
   }
 }
 
-function money(n: number) {
-  return n.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-}
-
 function buildDownloadPayload(inv: InvoiceApiRecord) {
   const bal = invoiceBalance(inv);
   return {
+    currency: "KES",
+    displayCurrency: "Ksh",
     invoiceNo: inv.invoiceNo,
     status: inv.status,
     issueDate: inv.issueDate,
@@ -433,7 +429,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
     const tr = Number(overpayTotal);
     if (!(tr > overpayFor.totalAmount)) {
       toast.error(
-        `Total received must be greater than invoice total (${money(overpayFor.totalAmount)}).`
+        `Total received must be greater than invoice total (${formatKsh(overpayFor.totalAmount)}).`
       );
       return;
     }
@@ -622,22 +618,22 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
                         <td className="px-6 py-4">
                           <div className="flex flex-col gap-0.5">
                             <span className="text-sm font-bold">
-                              ${money(invoice.totalAmount)}
+                              {formatKsh(invoice.totalAmount)}
                             </span>
                             {bal > 0.005 && (
                               <span className="text-xs text-rose-600/90">
-                                Due ${money(bal)}
+                                Due {formatKsh(bal)}
                               </span>
                             )}
                             {display === "credit" && bal < -0.005 && (
                               <span className="text-xs text-sky-700">
-                                Credit ${money(-bal)}
+                                Credit {formatKsh(-bal)}
                               </span>
                             )}
                             {(invoice.amountPaid ?? 0) > 0 &&
                               bal > 0.005 && (
                                 <span className="text-xs text-muted-foreground">
-                                  Paid ${money(invoice.amountPaid)}
+                                  Paid {formatKsh(invoice.amountPaid)}
                                 </span>
                               )}
                           </div>
@@ -874,7 +870,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
                               </span>
                             </span>
                             <span className="shrink-0 font-medium">
-                              ${money(it.quantity * it.rate)}
+                              {formatKsh(it.quantity * it.rate)}
                             </span>
                           </li>
                         ))}
@@ -883,11 +879,11 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
                     <div className="mt-4 space-y-1 border-t border-border/40 pt-4">
                       <div className="flex justify-between font-semibold">
                         <span>Invoice total</span>
-                        <span>${money(viewInvoice.totalAmount)}</span>
+                        <span>{formatKsh(viewInvoice.totalAmount)}</span>
                       </div>
                       <div className="flex justify-between text-muted-foreground">
                         <span>Amount paid</span>
-                        <span>${money(viewInvoice.amountPaid ?? 0)}</span>
+                        <span>{formatKsh(viewInvoice.amountPaid ?? 0)}</span>
                       </div>
                       <div className="flex justify-between text-base font-bold text-foreground">
                         <span>
@@ -906,8 +902,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
                                 : "text-emerald-600"
                           }
                         >
-                          $
-                          {money(
+                          {formatKsh(
                             Math.abs(invoiceBalance(viewInvoice))
                           )}
                         </span>
@@ -953,10 +948,10 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
               <h3 className="text-lg font-semibold">Partial payment</h3>
               <p className="mt-1 text-sm text-muted-foreground">
                 {partialFor.invoiceNo} · Balance due{" "}
-                <strong>${money(invoiceBalance(partialFor))}</strong>
+                <strong>{formatKsh(invoiceBalance(partialFor))}</strong>
               </p>
               <label className="mt-4 block text-xs font-semibold uppercase text-muted-foreground">
-                Payment amount ($)
+                Payment amount (Ksh)
               </label>
               <input
                 type="number"
@@ -1018,12 +1013,12 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
             >
               <h3 className="text-lg font-semibold">Client overpaid</h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                Invoice total <strong>${money(overpayFor.totalAmount)}</strong>.
+                Invoice total <strong>{formatKsh(overpayFor.totalAmount)}</strong>.
                 Enter the <strong>total amount received</strong> (must be greater
                 than the invoice) so we record the credit you owe the client.
               </p>
               <label className="mt-4 block text-xs font-semibold uppercase text-muted-foreground">
-                Total received ($)
+                Total received (Ksh)
               </label>
               <input
                 type="number"

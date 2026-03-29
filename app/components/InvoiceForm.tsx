@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { X, Plus, Trash2, Send, Save, CreditCard, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
+import { formatKsh } from "../lib/currency";
 
 const API_BASE = "http://localhost:3001/api/app";
 
@@ -365,8 +366,8 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                       </div>
                       <div className="col-span-3">
                         <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-                            $
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-muted-foreground">
+                            Ksh
                           </span>
                           <input
                             type="number"
@@ -380,7 +381,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                               })
                             }
                             disabled={saving}
-                            className="w-full rounded-lg border border-border/40 bg-muted/20 py-2 pl-6 pr-3 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60"
+                            className="w-full rounded-lg border border-border/40 bg-muted/20 py-2 pl-10 pr-3 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60"
                           />
                         </div>
                       </div>
@@ -402,15 +403,15 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
               <div className="space-y-4 border-t border-border/40 pt-6">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Subtotal</span>
-                  <span className="font-semibold">${subtotal.toFixed(2)}</span>
+                  <span className="font-semibold">{formatKsh(subtotal)}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Tax (10%)</span>
-                  <span className="font-semibold">${tax.toFixed(2)}</span>
+                  <span className="font-semibold">{formatKsh(tax)}</span>
                 </div>
                 <div className="flex items-center justify-between border-t border-border/10 pt-2 text-xl font-bold">
                   <span>Total Amount</span>
-                  <span className="text-indigo-500">${total.toFixed(2)}</span>
+                  <span className="text-indigo-500">{formatKsh(total)}</span>
                 </div>
               </div>
 
