@@ -109,6 +109,7 @@ export default function DashboardPage() {
               {activeTab === 'clients' && (
                 <ClientList
                   refreshKey={dataVersion}
+                  onDataChanged={bumpData}
                   onCreateInvoiceForClient={(c) => {
                     setActiveTab('invoices');
                     openInvoiceForm(c);

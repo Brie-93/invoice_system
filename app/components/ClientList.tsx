@@ -11,6 +11,7 @@ import {
   Loader2,
   FileText,
   Users,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -40,16 +41,20 @@ export interface ClientListProps {
   /** Opens the invoice form on the Invoices tab with this client pre-filled */
   onCreateInvoiceForClient?: (client: ClientCardPayload) => void;
   refreshKey?: number;
+  onDataChanged?: () => void;
 }
 
 export const ClientList: React.FC<ClientListProps> = ({
   onCreateInvoiceForClient,
   refreshKey = 0,
+  onDataChanged,
 }) => {
   const [clients, setClients] = useState<Client[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [listLoading, setListLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Client | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -148,6 +153,39 @@ export const ClientList: React.FC<ClientListProps> = ({
       toast.error("Network error while saving.", { id: toastId });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const runDeleteClient = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    const toastId = toast.loading("Deleting client…");
+    try {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        toast.error("You are not signed in.", { id: toastId });
+        return;
+      }
+      const res = await fetch(`${API_BASE}/clients/${deleteTarget.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(
+          typeof data?.message === "string" ? data.message : "Delete failed.",
+          { id: toastId }
+        );
+        return;
+      }
+      toast.success("Client and their invoices removed.", { id: toastId });
+      setDeleteTarget(null);
+      onDataChanged?.();
+      await fetchClients();
+    } catch {
+      toast.error("Network error.", { id: toastId });
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -274,18 +312,91 @@ export const ClientList: React.FC<ClientListProps> = ({
                   </div>
                 </div>
               </div>
-              <div className="relative mt-5 flex items-center gap-2 border-t border-gray-100 pt-4">
+              <div className="relative mt-5 flex items-center justify-between gap-2 border-t border-gray-100 pt-4">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-700">
                   <FileText className="h-3.5 w-3.5 text-indigo-500" />
                   {client._count.invoices}{" "}
                   {client._count.invoices === 1 ? "invoice" : "invoices"}
                 </span>
+                <button
+                  type="button"
+                  title="Delete client"
+                  className="rounded-lg p-2 text-gray-400 transition hover:bg-rose-50 hover:text-rose-600"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeleteTarget(client);
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
               </div>
             </motion.article>
           );
           })}
         </div>
       )}
+
+      <AnimatePresence>
+        {deleteTarget !== null && (
+          <motion.div
+            key="delete-client"
+            className="fixed inset-0 z-[90] flex items-center justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <button
+              type="button"
+              aria-label="Close"
+              className="absolute inset-0 bg-gray-900/45 backdrop-blur-[2px]"
+              onClick={() => !deleting && setDeleteTarget(null)}
+            />
+            <motion.div
+              role="alertdialog"
+              aria-modal="true"
+              initial={{ opacity: 0, scale: 0.96, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.98, y: 6 }}
+              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+              className="relative z-10 w-full max-w-md rounded-2xl border border-gray-100 bg-white p-6 shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 className="text-lg font-serif font-bold text-gray-900">
+                Delete client?
+              </h2>
+              <p className="mt-2 text-sm text-gray-600">
+                Remove <strong>{deleteTarget.name}</strong> and{" "}
+                <strong>all of their invoices</strong>. This cannot be undone.
+              </p>
+              <div className="mt-6 flex justify-end gap-3">
+                <button
+                  type="button"
+                  disabled={deleting}
+                  onClick={() => setDeleteTarget(null)}
+                  className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={deleting}
+                  onClick={() => void runDeleteClient()}
+                  className="inline-flex items-center gap-2 rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-500 disabled:opacity-60"
+                >
+                  {deleting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Deleting…
+                    </>
+                  ) : (
+                    "Delete"
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <AnimatePresence>
         {modalOpen && (
