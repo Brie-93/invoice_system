@@ -77,6 +77,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
       if (!editingInvoiceId) return;
       try {
         const token = localStorage.getItem("token");
+        console.log('submit payload:', {isEditing: !!editingInvoiceId, editingInvoiceId, op: "update_draft" });
         const res = await fetch(`${API_BASE}/invoices/${editingInvoiceId}`, { headers: { Authorization: `Bearer ${token}` } });
         const data = await res.json();
         

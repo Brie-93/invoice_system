@@ -1,3 +1,5 @@
+// InvoiceList.tsx
+
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -140,10 +142,10 @@ function exportAllInvoicesToCSV(invoices: InvoiceApiRecord[]) {
   // Map invoices to rows
   const rows = invoices.map(inv => {
     const bal = invoiceBalance(inv);
-    return[
+    return [
       inv.invoiceNo,
-      // `"${inv.client.name}"`, // quotes handle commas in names
-      inv.client.email,
+      `"${inv.client.name}"`,
+      `"${inv.client.email}"`,
       inv.issueDate.split('T')[0],
       inv.dueDate.split('T')[0],
       inv.status,
