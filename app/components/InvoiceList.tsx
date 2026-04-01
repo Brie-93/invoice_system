@@ -128,15 +128,56 @@ function downloadInvoiceFile(inv: InvoiceApiRecord) {
   toast.success("Invoice downloaded.");
 }
 
+function exportAllInvoicesToCSV(invoices: InvoiceApiRecord[]) {
+  if (invoices.length === 0) {
+    toast.error("No invoices to export.");
+    return;
+  }
+
+  // Define CSV Headers
+  const headers =["Invoice No", "Client Name", "Client Email", "Issue Date", "Due Date", "Status", "Total Amount", "Amount Paid", "Balance Due"];
+  
+  // Map invoices to rows
+  const rows = invoices.map(inv => {
+    const bal = invoiceBalance(inv);
+    return[
+      inv.invoiceNo,
+      // `"${inv.client.name}"`, // quotes handle commas in names
+      inv.client.email,
+      inv.issueDate.split('T')[0],
+      inv.dueDate.split('T')[0],
+      inv.status,
+      inv.totalAmount,
+      inv.amountPaid ?? 0,
+      bal
+    ].join(",");
+  });
+
+  // Combine headers and rows
+  const csvContent = [headers.join(","), ...rows].join("\n");
+  
+  // Create and trigger download
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `invoices_export_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast.success("Invoices exported to CSV.");
+}
+
 export interface InvoiceListProps {
   refreshKey?: number;
   onCreateInvoice?: () => void;
+  onEditDraft?: (invoiceId: number) => void;
   onDataChanged?: () => void;
 }
 
 export const InvoiceList: React.FC<InvoiceListProps> = ({
   refreshKey = 0,
   onCreateInvoice,
+  onEditDraft,
   onDataChanged,
 }) => {
   const [invoices, setInvoices] = useState<InvoiceApiRecord[]>([]);
@@ -251,14 +292,20 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
     const q = search.trim().toLowerCase();
     if (!q) return invoices;
     return invoices.filter((inv) => {
-      const amt = inv.totalAmount.toFixed(2);
-      const bal = invoiceBalance(inv).toFixed(2);
+      const amtStr = String(inv.totalAmount); 
+      const balStr = String(invoiceBalance(inv));
+      
+      const matchesItems = inv.items?.some((it) => 
+        it.description.toLowerCase().includes(q)
+      );
+
       return (
         inv.invoiceNo.toLowerCase().includes(q) ||
         inv.client.name.toLowerCase().includes(q) ||
         inv.client.email.toLowerCase().includes(q) ||
-        amt.includes(q) ||
-        bal.includes(q)
+        amtStr.includes(q) ||
+        balStr.includes(q) ||
+        matchesItems
       );
     });
   }, [invoices, search]);
@@ -500,7 +547,8 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
           )}
           <button
             type="button"
-            className="flex items-center gap-2 rounded-xl border border-border/40 px-4 py-2 text-sm font-medium transition-colors hover:bg-muted"
+            onClick={() => exportAllInvoicesToCSV(filtered)} 
+            className="flex items-center gap-2 rounded-xl border border-border/40 px-4 py-2 text-sm font-medium transition-colors hover:bg-muted dark:hover:bg-gray-800"
           >
             <Download className="h-4 w-4" />
             Export CSV
@@ -570,7 +618,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
                   <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-border/40">
+              <tbody className="divide-y divide-border/40 pb-24">
                 {filtered.length === 0 ? (
                   <tr>
                     <td
@@ -588,6 +636,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
                     const bal = invoiceBalance(invoice);
                     const settled = bal <= 0.005 && display !== "credit";
                     const busy = paymentBusyId === invoice.id;
+                    const isMenuOpen = menuOpenId === invoice.id;
 
                     return (
                       <motion.tr
@@ -595,7 +644,7 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: idx * 0.03 }}
-                        className="group transition-colors hover:bg-muted/20"
+                        className={`group transition-colors hover:bg-muted/20 ${isMenuOpen ? 'relative z-50 shadow-sm' : 'relative z-0'}`}
                       >
                         <td className="px-6 py-4">
                           <span className="text-sm font-bold text-indigo-500">
@@ -700,69 +749,76 @@ export const InvoiceList: React.FC<InvoiceListProps> = ({
                               <UserX className="h-4 w-4" />
                             </button>
                             <div className="relative" ref={menuOpenId === invoice.id ? menuRef : null}>
-                              <button
-                                type="button"
-                                className={`rounded-lg p-2 transition-colors hover:bg-muted ${menuOpenId === invoice.id ? "bg-muted" : "text-muted-foreground"}`}
-                                title="Payment actions"
-                                aria-expanded={menuOpenId === invoice.id}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setMenuOpenId((id) =>
-                                    id === invoice.id ? null : invoice.id
-                                  );
-                                }}
-                                disabled={busy}
-                              >
-                                {busy ? (
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                ) : (
-                                  <MoreHorizontal className="h-4 w-4" />
-                                )}
-                              </button>
-                              {menuOpenId === invoice.id && (
-                                <div className="absolute right-0 z-50 mt-1 w-56 overflow-hidden rounded-xl border border-border/40 bg-card py-1 text-left text-sm shadow-xl">
-                                  <button
-                                    type="button"
-                                    disabled={settled || busy}
-                                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      markFullyPaid(invoice);
-                                    }}
-                                  >
-                                    <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                                    Fully paid
-                                  </button>
-                                  <button
-                                    type="button"
-                                    disabled={
-                                      settled || busy || bal <= 0.005
-                                    }
-                                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      openPartial(invoice);
-                                    }}
-                                  >
-                                    <CircleDollarSign className="h-4 w-4 text-amber-600" />
-                                    Partial payment…
-                                  </button>
-                                  <button
-                                    type="button"
-                                    disabled={busy}
-                                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      openOverpay(invoice);
-                                    }}
-                                  >
-                                    <TrendingUp className="h-4 w-4 text-sky-600" />
-                                    Client overpaid…
-                                  </button>
-                                </div>
-                              )}
+  <button
+    type="button"
+    className={`rounded-lg p-2 transition-colors hover:bg-muted ${menuOpenId === invoice.id ? "bg-muted" : "text-muted-foreground"}`}
+    title="Payment actions"
+    aria-expanded={menuOpenId === invoice.id}
+    onClick={(e) => {
+      e.stopPropagation();
+      setMenuOpenId((id) => id === invoice.id ? null : invoice.id);
+    }}
+    disabled={busy}
+  >
+    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreHorizontal className="h-4 w-4" />}
+  </button>
+
+  {menuOpenId === invoice.id && (
+    <div className="absolute right-0 z-[9999] mt-1 w-56 overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-1 text-left text-sm shadow-2xl">
+      {invoice.status !== 'DRAFT' && (
+        <>
+          <button
+            type="button"
+            disabled={settled || busy}
+            className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-40"
+            onClick={(e) => { e.stopPropagation(); markFullyPaid(invoice); }}
+          >
+            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+            Fully paid
+          </button>
+          <button
+            type="button"
+            disabled={settled || busy || bal <= 0.005}
+            className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-40"
+            onClick={(e) => { e.stopPropagation(); openPartial(invoice); }}
+          >
+            <CircleDollarSign className="h-4 w-4 text-amber-600" />
+            Partial payment…
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-40"
+            onClick={(e) => { e.stopPropagation(); openOverpay(invoice); }}
+          >
+            <TrendingUp className="h-4 w-4 text-sky-600" />
+            Client overpaid…
+          </button>
+        </>
+      )}
+      {invoice.status === 'DRAFT' && (
+        <>
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-indigo-600 dark:text-indigo-400 font-medium hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              setMenuOpenId(null);
+              if (onEditDraft) onEditDraft(invoice.id);
+            }}
+          >
+            Edit Draft Invoice
+          </button>
+          <div className="px-3 py-2.5 text-xs text-muted-foreground italic text-center">
+            Payments disabled for drafts.
+          </div>
+        </>
+      )}
+    </div>
+  )}
+</div>
                             </div>
-                          </div>
+                         
                         </td>
                       </motion.tr>
                     );

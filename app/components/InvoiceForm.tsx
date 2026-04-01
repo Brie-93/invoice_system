@@ -1,3 +1,4 @@
+// app/components/InvoiceForm.tsx
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
@@ -26,6 +27,7 @@ interface InvoiceFormProps {
   isOpen: boolean;
   onClose: () => void;
   prefilledClient?: PrefilledClient | null;
+  editingInvoiceId?: number | null;
   onSuccess?: () => void;
 }
 
@@ -33,57 +35,85 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
   isOpen,
   onClose,
   prefilledClient = null,
+  editingInvoiceId = null,
   onSuccess,
 }) => {
   const [items, setItems] = useState<LineItem[]>([
     { id: Date.now(), description: "", quantity: 1, price: 0 },
   ]);
-  const [issueDate, setIssueDate] = useState("");
+  const[issueDate, setIssueDate] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [clientList, setClientList] = useState<ApiClient[]>([]);
-  const [selectedClientId, setSelectedClientId] = useState<number | "">("");
+  const[selectedClientId, setSelectedClientId] = useState<number | "">("");
   const [loadingClients, setLoadingClients] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
-    const today = new Date().toISOString().split("T")[0];
-    const due = new Date();
-    due.setMonth(due.getMonth() + 1);
-    setIssueDate(today);
-    setDueDate(due.toISOString().split("T")[0]);
-    setItems([{ id: Date.now(), description: "", quantity: 1, price: 0 }]);
 
-    if (prefilledClient) {
-      setSelectedClientId(prefilledClient.id);
-      return;
-    }
-
-    setSelectedClientId("");
     let cancelled = false;
-    (async () => {
+
+    // Helper to fetch clients
+    const loadClients = async () => {
       setLoadingClients(true);
       try {
         const token = localStorage.getItem("token");
         if (!token) return;
-        const res = await fetch(`${API_BASE}/clients`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const data = await res.json().catch(() => []);
-        if (cancelled || !res.ok || !Array.isArray(data)) return;
-        setClientList(data);
-        if (data.length) setSelectedClientId(data[0].id);
+        const res = await fetch(`${API_BASE}/clients`, { headers: { Authorization: `Bearer ${token}` } });
+        const data = await res.json().catch(() =>[]);
+        if (!cancelled && res.ok && Array.isArray(data)) {
+          setClientList(data);
+          if (data.length && !prefilledClient && !editingInvoiceId) {
+             setSelectedClientId(data[0].id);
+          }
+        }
       } finally {
         if (!cancelled) setLoadingClients(false);
       }
-    })();
-    return () => {
-      cancelled = true;
     };
-  }, [isOpen, prefilledClient?.id, prefilledClient?.email, prefilledClient?.name]);
+
+    // Helper to fetch existing invoice if editing
+    const loadDraft = async () => {
+      if (!editingInvoiceId) return;
+      try {
+        const token = localStorage.getItem("token");
+        const res = await fetch(`${API_BASE}/invoices/${editingInvoiceId}`, { headers: { Authorization: `Bearer ${token}` } });
+        const data = await res.json();
+        
+        if (!cancelled && res.ok) {
+           setSelectedClientId(data.clientId);
+           setIssueDate(data.issueDate.split('T')[0]);
+           setDueDate(data.dueDate.split('T')[0]);
+           setItems(data.items.map((it: any) => ({
+             id: it.id, description: it.description, quantity: it.quantity, price: it.rate
+           })));
+        }
+      } catch(e) {
+         toast.error("Failed to load draft");
+      }
+    };
+
+    // If starting fresh
+    if (!editingInvoiceId) {
+        const today = new Date().toISOString().split("T")[0];
+        const due = new Date();
+        due.setMonth(due.getMonth() + 1);
+        setIssueDate(today);
+        setDueDate(due.toISOString().split("T")[0]);
+        setItems([{ id: Date.now(), description: "", quantity: 1, price: 0 }]);
+        if (prefilledClient) setSelectedClientId(prefilledClient.id);
+        else setSelectedClientId("");
+    }
+
+    loadClients().then(() => {
+       if (editingInvoiceId) loadDraft();
+    });
+
+    return () => { cancelled = true; };
+  },[isOpen, prefilledClient?.id, editingInvoiceId]);
 
   const addItem = () => {
-    setItems((prev) => [
+    setItems((prev) =>[
       ...prev,
       { id: Date.now(), description: "", quantity: 1, price: 0 },
     ]);
@@ -138,29 +168,50 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
     }
 
     setSaving(true);
+    const isEditing = !!editingInvoiceId;
+    
     const toastId = toast.loading(
-      status === "DRAFT" ? "Saving draft…" : "Creating invoice…"
+      isEditing 
+        ? (status === "DRAFT" ? "Updating draft…" : "Sending draft as invoice…")
+        : (status === "DRAFT" ? "Saving draft…" : "Creating invoice…")
     );
+
     try {
       const token = localStorage.getItem("token");
       if (!token) {
         toast.error("You are not signed in.", { id: toastId });
         return;
       }
-      const res = await fetch(`${API_BASE}/invoices`, {
-        method: "POST",
+
+      // Determine URL and Method based on whether we are editing
+      const url = isEditing 
+        ? `${API_BASE}/invoices/${editingInvoiceId}` 
+        : `${API_BASE}/invoices`;
+      const method = isEditing ? "PATCH" : "POST";
+
+      // Build payload
+      const payload: any = {
+        clientId,
+        issueDate: issueDate ? new Date(issueDate).toISOString() : undefined,
+        dueDate: new Date(dueDate).toISOString(),
+        status,
+        items: payloadItems,
+      };
+
+      // Add the operation flag if we are patching an existing draft
+      if (isEditing) {
+        payload.op = "update_draft";
+      }
+
+      const res = await fetch(url, {
+        method,
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          clientId,
-          issueDate: issueDate ? new Date(issueDate).toISOString() : undefined,
-          dueDate: new Date(dueDate).toISOString(),
-          status,
-          items: payloadItems,
-        }),
+        body: JSON.stringify(payload),
       });
+
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         toast.error(
@@ -169,10 +220,14 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
         );
         return;
       }
+
       toast.success(
-        status === "DRAFT" ? "Draft saved." : "Invoice created.",
+        isEditing 
+          ? (status === "DRAFT" ? "Draft updated." : "Invoice sent.")
+          : (status === "DRAFT" ? "Draft saved." : "Invoice created."),
         { id: toastId }
       );
+      
       onSuccess?.();
       onClose();
     } catch {
@@ -194,10 +249,14 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
     return clientList.find((c) => c.id === selectedClientId) ?? null;
   }, [prefilledClient, clientList, selectedClientId]);
 
+  // Shared Input Class for consistency
+  const inputClass = "w-full rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-4 py-3 text-gray-900 dark:text-white transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:opacity-60";
+
   return (
     <AnimatePresence>
       {isOpen && (
         <>
+          {/* Backdrop */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -205,15 +264,18 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
             onClick={handleClose}
             className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm"
           />
+          
+          {/* Slide-over Panel */}
           <motion.div
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", damping: 28, stiffness: 220 }}
-            className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-2xl overflow-y-auto border-l border-border/40 bg-background shadow-2xl"
+            className="fixed right-0 top-0 bottom-0 z-50 w-full max-w-2xl overflow-y-auto border-l border-gray-200 dark:border-gray-800 bg-white dark:bg-[#030213] shadow-2xl"
           >
-            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border/40 bg-background/80 p-6 backdrop-blur-md">
-              <h2 className="flex items-center gap-2 text-2xl font-bold">
+            {/* Header */}
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-[#030213]/80 p-6 backdrop-blur-md">
+              <h2 className="flex items-center gap-2 text-2xl font-bold text-gray-900 dark:text-white">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500">
                   <CreditCard className="h-4 w-4 text-white" />
                 </div>
@@ -223,20 +285,23 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                 type="button"
                 onClick={handleClose}
                 disabled={saving}
-                className="rounded-full p-2 transition-colors hover:bg-muted disabled:opacity-50"
+                className="rounded-full p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
               >
                 <X className="h-6 w-6" />
               </button>
             </div>
 
+            {/* Form Content */}
             <div className="space-y-8 p-8">
+              
+              {/* Client Selection */}
               {showClientPicker && (
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                     Client
                   </label>
                   {loadingClients ? (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
                       <Loader2 className="h-4 w-4 animate-spin" />
                       Loading clients…
                     </div>
@@ -248,12 +313,10 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                     <select
                       value={selectedClientId === "" ? "" : String(selectedClientId)}
                       onChange={(e) =>
-                        setSelectedClientId(
-                          e.target.value ? Number(e.target.value) : ""
-                        )
+                        setSelectedClientId(e.target.value ? Number(e.target.value) : "")
                       }
                       disabled={saving}
-                      className="w-full rounded-xl border border-border/40 bg-muted/30 px-4 py-3 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60"
+                      className={inputClass}
                     >
                       {clientList.map((c) => (
                         <option key={c.id} value={c.id}>
@@ -265,9 +328,10 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                 </div>
               )}
 
+              {/* Client Details Read-Only */}
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                     Client Name
                   </label>
                   <input
@@ -275,11 +339,11 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                     readOnly
                     value={displayClient?.name ?? ""}
                     placeholder="e.g. Acme Corp"
-                    className="w-full rounded-xl border border-border/40 bg-muted/30 px-4 py-3 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 read-only:cursor-not-allowed read-only:opacity-90"
+                    className={`${inputClass} read-only:bg-gray-50 dark:read-only:bg-gray-900/50 read-only:cursor-not-allowed`}
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                     Client Email
                   </label>
                   <input
@@ -287,14 +351,15 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                     readOnly
                     value={displayClient?.email ?? ""}
                     placeholder="billing@acme.com"
-                    className="w-full rounded-xl border border-border/40 bg-muted/30 px-4 py-3 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 read-only:cursor-not-allowed read-only:opacity-90"
+                    className={`${inputClass} read-only:bg-gray-50 dark:read-only:bg-gray-900/50 read-only:cursor-not-allowed`}
                   />
                 </div>
               </div>
 
+              {/* Dates */}
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                     Invoice Date
                   </label>
                   <input
@@ -302,11 +367,11 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                     value={issueDate}
                     onChange={(e) => setIssueDate(e.target.value)}
                     disabled={saving}
-                    className="w-full rounded-xl border border-border/40 bg-muted/30 px-4 py-3 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60"
+                    className={inputClass}
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                     Due Date
                   </label>
                   <input
@@ -314,21 +379,22 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
                     disabled={saving}
-                    className="w-full rounded-xl border border-border/40 bg-muted/30 px-4 py-3 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60"
+                    className={inputClass}
                   />
                 </div>
               </div>
 
-              <div className="space-y-4">
+              {/* Line Items */}
+              <div className="space-y-4 border-t border-gray-200 dark:border-gray-800 pt-6">
                 <div className="flex items-center justify-between">
-                  <label className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                  <label className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                     Line Items
                   </label>
                   <button
                     type="button"
                     onClick={addItem}
                     disabled={saving}
-                    className="flex items-center gap-1 text-xs font-bold text-indigo-500 transition-colors hover:text-indigo-400 disabled:opacity-50"
+                    className="flex items-center gap-1 text-xs font-bold text-indigo-600 dark:text-indigo-400 transition-colors hover:text-indigo-500 disabled:opacity-50"
                   >
                     <Plus className="h-4 w-4" /> Add Item
                   </button>
@@ -346,7 +412,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                             updateItem(item.id, { description: e.target.value })
                           }
                           disabled={saving}
-                          className="w-full rounded-lg border border-border/40 bg-muted/20 px-3 py-2 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60"
+                          className="w-full rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-white transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:opacity-60"
                         />
                       </div>
                       <div className="col-span-2">
@@ -361,12 +427,12 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                             })
                           }
                           disabled={saving}
-                          className="w-full rounded-lg border border-border/40 bg-muted/20 px-3 py-2 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60"
+                          className="w-full rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-white transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:opacity-60"
                         />
                       </div>
                       <div className="col-span-3">
                         <div className="relative">
-                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-muted-foreground">
+                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-semibold text-gray-400">
                             Ksh
                           </span>
                           <input
@@ -381,7 +447,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                               })
                             }
                             disabled={saving}
-                            className="w-full rounded-lg border border-border/40 bg-muted/20 py-2 pl-10 pr-3 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-60"
+                            className="w-full rounded-lg border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 py-2 pl-10 pr-3 text-sm text-gray-900 dark:text-white transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/50 disabled:opacity-60"
                           />
                         </div>
                       </div>
@@ -390,7 +456,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                           type="button"
                           onClick={() => removeItem(item.id)}
                           disabled={saving || items.length <= 1}
-                          className="p-2 text-muted-foreground transition-colors hover:text-rose-500 disabled:opacity-40"
+                          className="p-2 text-gray-400 transition-colors hover:text-rose-500 disabled:opacity-40"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -400,27 +466,29 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                 </div>
               </div>
 
-              <div className="space-y-4 border-t border-border/40 pt-6">
+              {/* Totals Calculation */}
+              <div className="space-y-4 border-t border-gray-200 dark:border-gray-800 pt-6">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span className="font-semibold">{formatKsh(subtotal)}</span>
+                  <span className="text-gray-500 dark:text-gray-400">Subtotal</span>
+                  <span className="font-semibold text-gray-900 dark:text-white">{formatKsh(subtotal)}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Tax (10%)</span>
-                  <span className="font-semibold">{formatKsh(tax)}</span>
+                  <span className="text-gray-500 dark:text-gray-400">Tax (10%)</span>
+                  <span className="font-semibold text-gray-900 dark:text-white">{formatKsh(tax)}</span>
                 </div>
-                <div className="flex items-center justify-between border-t border-border/10 pt-2 text-xl font-bold">
-                  <span>Total Amount</span>
-                  <span className="text-indigo-500">{formatKsh(total)}</span>
+                <div className="flex items-center justify-between border-t border-gray-100 dark:border-gray-800 pt-3 text-xl font-bold">
+                  <span className="text-gray-900 dark:text-white">Total Amount</span>
+                  <span className="text-indigo-600 dark:text-indigo-400">{formatKsh(total)}</span>
                 </div>
               </div>
 
-              <div className="flex gap-4 pt-6">
+              {/* Submit Buttons */}
+              <div className="flex gap-4 pt-6 pb-8">
                 <button
                   type="button"
                   disabled={saving}
                   onClick={() => submit("DRAFT")}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-muted py-4 font-bold transition-all hover:bg-muted/80 disabled:opacity-60"
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white py-4 font-bold transition-all hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-60"
                 >
                   {saving ? (
                     <Loader2 className="h-5 w-5 animate-spin" />
@@ -433,7 +501,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                   type="button"
                   disabled={saving}
                   onClick={() => submit("PENDING")}
-                  className="flex flex-[1.2] items-center justify-center gap-2 rounded-xl bg-indigo-500 py-4 font-bold text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-600 active:scale-95 disabled:opacity-60"
+                  className="flex flex-[1.2] items-center justify-center gap-2 rounded-xl bg-indigo-600 py-4 font-bold text-white shadow-lg shadow-indigo-600/20 transition-all hover:bg-indigo-700 active:scale-95 disabled:opacity-60"
                 >
                   {saving ? (
                     <Loader2 className="h-5 w-5 animate-spin" />
@@ -443,6 +511,7 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
                   Send Invoice
                 </button>
               </div>
+
             </div>
           </motion.div>
         </>
