@@ -77,13 +77,12 @@ export default function DashboardPage() {
         
         {/* HEADER */}
         <header className="h-16 bg-white dark:bg-[#0a0a1a] border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-6 z-10 transition-colors">
-          <div className="flex items-center bg-gray-100 dark:bg-gray-800/50 rounded-xl px-3 py-2 w-96 border border-transparent dark:border-gray-700/50">
-            <Search className="h-5 w-5 text-gray-400" />
-            <input 
-              type="text" 
-              placeholder="Search anything..." 
-              className="bg-transparent border-none outline-none ml-2 w-full text-sm dark:text-white placeholder:text-gray-400"
-            />
+          
+          {/*DYNAMIC PAGE TITLE */}
+          <div className="flex items-center">
+            <h2 className="text-xl font-serif font-bold text-gray-800 dark:text-gray-200 capitalize">
+              {activeTab === 'dashboard' ? 'Overview' : activeTab}
+            </h2>
           </div>
           
           <div className="flex items-center space-x-5">
