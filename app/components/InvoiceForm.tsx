@@ -53,6 +53,11 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
 
     let cancelled = false;
 
+    setItems([{ id: Date.now(), description: "", quantity: 1, price: 0 }]);
+    setIssueDate("");
+    setDueDate("");
+    setSelectedClientId("");
+
     // Helper to fetch clients
     const loadClients = async () => {
       setLoadingClients(true);
@@ -96,22 +101,20 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
 
     // If starting fresh
     if (!editingInvoiceId) {
-        const today = new Date().toISOString().split("T")[0];
-        const due = new Date();
-        due.setMonth(due.getMonth() + 1);
-        setIssueDate(today);
-        setDueDate(due.toISOString().split("T")[0]);
-        setItems([{ id: Date.now(), description: "", quantity: 1, price: 0 }]);
-        if (prefilledClient) setSelectedClientId(prefilledClient.id);
-        else setSelectedClientId("");
+      const today = new Date().toISOString().split("T")[0];
+      const due = new Date();
+      due.setMonth(due.getMonth() + 1);
+      setIssueDate(today);
+      setDueDate(due.toISOString().split("T")[0]);
+      if (prefilledClient) setSelectedClientId(prefilledClient.id);
     }
-
+  
     loadClients().then(() => {
-       if (editingInvoiceId) loadDraft();
+      if (editingInvoiceId) loadDraft();
     });
-
+  
     return () => { cancelled = true; };
-  },[isOpen, prefilledClient?.id, editingInvoiceId]);
+  }, [isOpen, prefilledClient?.id, editingInvoiceId]);
 
   const addItem = () => {
     setItems((prev) =>[
@@ -168,7 +171,6 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
       return;
     }
 
-    setSaving(true);
     const isEditing = !!editingInvoiceId;
     
     const toastId = toast.loading(
@@ -180,9 +182,11 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
     try {
       const token = localStorage.getItem("token");
       if (!token) {
-        toast.error("You are not signed in.", { id: toastId });
+        toast.error("You are not signed in.");
         return;
       }
+
+      setSaving(true);
 
       // Determine URL and Method based on whether we are editing
       const url = isEditing 
@@ -276,12 +280,12 @@ export const InvoiceForm: React.FC<InvoiceFormProps> = ({
           >
             {/* Header */}
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-[#030213]/80 p-6 backdrop-blur-md">
-              <h2 className="flex items-center gap-2 text-2xl font-bold text-gray-900 dark:text-white">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500">
-                  <CreditCard className="h-4 w-4 text-white" />
-                </div>
-                Create New Invoice
-              </h2>
+            <h2 className="flex items-center gap-2 text-2xl font-bold text-gray-900 dark:text-white">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500">
+                <CreditCard className="h-4 w-4 text-white" />
+              </div>
+              {editingInvoiceId ? "Edit Draft" : "Create New Invoice"}
+            </h2>
               <button
                 type="button"
                 onClick={handleClose}
