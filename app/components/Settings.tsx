@@ -12,20 +12,10 @@ export const Settings = () => {
   const [passwords, setPasswords] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' });
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
-  // Load theme on mount
   useEffect(() => {
-    const storedTheme = localStorage.getItem('theme');
-    // Check if we explicitly saved 'dark', or if there's no save but the OS is dark
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    
-    if (storedTheme === 'dark' || (!storedTheme && prefersDark)) {
-      document.documentElement.classList.add('dark');
-      setIsDarkMode(true);
-    } else {
-      document.documentElement.classList.remove('dark');
-      setIsDarkMode(false);
-    }
-  },[]);
+    const isDark = document.documentElement.classList.contains('dark');
+    setIsDarkMode(isDark);
+  }, []);
 
   const toggleTheme = () => {
     const newTheme = !isDarkMode;
