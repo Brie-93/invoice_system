@@ -39,7 +39,7 @@ export default function LoginPage() {
     setAuthError(null); // Clear previous errors
     
     try {
-      const response = await fetch('http://localhost:3001/api/auth/login', {
+      const response = await fetch('https://invoice-system-backend-au29.onrender.com/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),

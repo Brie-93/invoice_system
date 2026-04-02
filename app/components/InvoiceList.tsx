@@ -23,7 +23,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { formatKsh } from "../lib/currency";
 
-const API_BASE = "http://localhost:3001/api/app";
+const API_BASE = "https://invoice-system-backend-au29.onrender.com/api/app";
 
 export type InvoiceLineItem = {
   id: number;

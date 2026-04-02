@@ -53,7 +53,7 @@ export const Settings = () => {
       const token = localStorage.getItem('token');
       if (!token) throw new Error('Not authenticated');
 
-      const response = await fetch('http://localhost:3001/api/auth/change-password', {
+      const response = await fetch('https://invoice-system-backend-au29.onrender.com/api/auth/change-password', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

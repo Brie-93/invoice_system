@@ -31,7 +31,7 @@ export const Dashboard = () => {
   useEffect(() => {
     const fetchStats = async () => {
       const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:3001/api/app/dashboard", {
+      const res = await fetch("https://invoice-system-backend-au29.onrender.com/api/app/dashboard", {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {

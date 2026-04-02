@@ -23,7 +23,7 @@ type Client = {
   _count: { invoices: number };
 };
 
-const API_BASE = "http://localhost:3001/api/app";
+const API_BASE = "https://invoice-system-backend-au29.onrender.com/api/app";
 
 function initialFromName(name: string) {
   const t = name.trim();
