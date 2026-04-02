@@ -6,7 +6,7 @@ import { X, Loader2, Users, Building2, FileText, ChevronDown, ChevronRight } fro
 import { toast } from "sonner";
 import { formatKsh } from "../lib/currency";
 
-const API_BASE = "https://invoice-system-uyig.vercel.app";
+const API_BASE = "https://invoice-system-backend-au29.onrender.com/api/app";
 
 type AppUser = {
   id: number;
